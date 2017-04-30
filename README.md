@@ -10,7 +10,7 @@ This is the code for my high altitude baloon project.
   - Measure outside temperature and pressure
   - Custom built payload
 
-## Components
+## Components
 
   - Raspberry Pi Zero    : brain
   - Logitech C910 camera : recording video
