@@ -11,6 +11,7 @@ This is the code for my high altitude baloon project.
   - Custom built payload
 
 ## Components
+
   - Raspberry Pi Zero    : brain
   - Logitech C910 camera : recording video
   - MS5611               : pressure/temperature sensor
@@ -22,6 +23,7 @@ This is the code for my high altitude baloon project.
   - Level converter      : interface between SIM808 and rPi
 
 ## Power
+
 Assume 4 hours needed
 
 Reported power consumption
@@ -36,7 +38,8 @@ Will need to measure real consumption.
 
 Unrechargeable lithium energisers are recommended. Lithium polymer OK too.
 
-Links
+## Links
+
   https://ukhas.org.uk/general:beginners_guide_to_high_altitude_ballooning
   http://robotrising.org
   https://www.balloonchallenge.org/tutorials
@@ -48,7 +51,8 @@ Links
   ms5611 lib https://github.com/Schm1tz1/arduino-ms5xxx
   map http://leafletjs.com/reference.html
     
-TODO
+## TODO
+
   - monitor temperature of CPU? As pressure drops, CPU will have a harder time
     dissipating heat.
   - beacon mode? Do I want to monitor power remaining and shut off video
