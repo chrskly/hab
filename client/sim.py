@@ -1,5 +1,7 @@
 
+import time
 import serial
+import logging
 
 class sim(object):
     """
@@ -32,12 +34,16 @@ class sim(object):
 
     def _get_until_OK(self, ok="OK", max_reads=20):
         """
-        Read from serial port (sim module) until we see OK (or a line containing
-        value of ok variable).
+        Read from serial port (sim module) until we see OK msg.
+          ok='OK'  : wait for a line with OK on it
+          ok='foo' : wait for a line with 'foo' in it
+          ok=None  : Just return the first line read
         """
         reads = 1
         while True:
             line = self._serial_read()
+            if not ok:
+                return line
             logging.debug("[%s of %s] reading from sim : %s", reads, max_reads, line)
             if ok in line:
                 return line
@@ -62,12 +68,13 @@ class sim(object):
         response = self._get_until_OK(ok=response_prefix)
 
         # Just return whole response if we're just waiting on an OK
-        if response_prefix == "OK":
+        if response_prefix == "OK" or not response_prefix:
             return response
         # If we're looking for a specific prefix, return the matching line
         else:
             for line in response.splitlines():
                 if line.startswith(response_prefix):
+                    logging.debug("AT command response : %s", line)
                     return line
         return False
 
@@ -178,3 +185,87 @@ class sim(object):
         if int(stat) == 1:
             return True
         return False
+
+    def gprs_is_attached(self):
+        """
+        Check if we are attached to GPRS
+        """
+        logging.debug("Checking if GPRS is attached")
+        command = "AT+CGATT?"
+        response = self._at_command(command, response_prefix='+CGATT')
+        if not response:
+            return False
+        prefix, raw_response = response.split(': ')
+        return int(raw_response) == 1
+
+    # Data fns
+
+    def get_ip(self):
+        """
+        Look up our IP address
+        """
+        ip = self._at_command("AT+CIFSR", response_prefix=None)
+        if not ip:
+            return False
+        logging.debug("IP is %s", ip)
+        return ip
+
+    def abort_upload(self):
+        cmd = 'AT+CIPSHUT'
+        if not self._at_command(cmd):
+            logging.debug("WARNING abort failed")
+        return
+
+    def data_upload(self):
+        """
+        Upload a message to the HAB server.
+        """
+        # Check GSM connected
+        if not self.gsm_registered():
+            logging.info("Upload failed because GSM not registered")
+            self.abort_upload()
+            return False
+        # Check connection status
+        if not self.gprs_registered():
+            logging.info("Upload failed because GPRS not registered")
+            self.abort_upload()
+            return False
+        # Check if GPRS is attached
+        if not self.gprs_is_attached():
+            logging.info("Upload failed because GPRS not attached")
+            self.abort_upload()
+            return False
+        # Set APN
+        cmd = 'AT+CSTT="CMNET"'
+        if not self._at_command(cmd):
+            logging.debug("Upload failed because problem checking conn status")
+            self.abort_upload()
+            return False
+        # Enable wireless
+        cmd = 'AT+CIICR'
+        if not self._at_command(cmd):
+            logging.debug("Upload failed because problem checking conn status (2)")
+            self.abort_upload()
+            return False
+        # See what our IP is
+        if not self.get_ip():
+          logging.debug("Upload failed because problem getting IP")
+          self.abort_upload()
+          return False
+        # Set up TCP connection
+        cmd = 'AT+CIPSTART="TCP","HAB.CHRSKLY.COM",10000'
+        if not self._at_command(cmd):
+            logging.debug("Upload failed because there was a problem establishing TCP conn")
+            self.abort_upload()
+            return False
+        # Send message
+        cmd = "AT+CIPSEND\nHello\n%s" % chr(26)
+        if not self._at_command(cmd):
+            logging.debug("Upload failed because there was a problem sending data to the TCP connection")
+            self.abort_upload()
+            return False
+        # close connection
+        cmd = 'AT+CIPCLOSE'
+        if not self._at_command(cmd):
+            logging.debug("WARNING failed to shutdown TCP connection")
+

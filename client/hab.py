@@ -52,6 +52,7 @@ if __name__ == "__main__":
     #print "enabling gps %s" % myhab.sim.enable_gps()
     #print "gps on %s" % myhab.sim.gps_is_on()
     #print "connected : %s" % myhab.sim.is_connected_to_network()
-    print "get gps : %s" % myhab.sim.get_gps()
+    #print "get gps : %s" % myhab.sim.get_gps()
     #print "http get : %s" % myhab.sim.http_get()
     #print "gprs connected %s" % myhab.sim.gprs_is_connected()
+    print myhab.sim.data_upload()
