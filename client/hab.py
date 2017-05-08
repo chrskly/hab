@@ -1,11 +1,14 @@
 #!/bin/env python
 
 import sys
+import logging
 
 from magnetometer import magnetometer
 from barometer import barometer
 from store import store
 from sim import sim
+
+logging.basicConfig(level=logging.DEBUG, format='%(created)f:%(message)s')
 
 class hab:
 
@@ -14,7 +17,7 @@ class hab:
         self.magnetometer = magnetometer(gauss = 4.7, declination = (-2,5))
         # interface to barometer
         self.barometer = barometer()
-        # interface to permanent store
+        # interface to persistent store
         self.store = store()
         # interface to GPS/GPRS module
         self.sim = sim()
@@ -25,11 +28,13 @@ class hab:
     def get_heading(self):
         # Get the heading from the magnetometer
         self.heading = self.magnetometer.degrees(self.magnetometer.heading())
-        print "Heading : %s" % str(self.heading)
+        logging.info("heading : %s", self.heading)
         self.store.store_heading(self.heading[0], self.heading[1])
 
     def get_altitude(self):
         (pressure, temperature) = self.barometer.read_temperature_and_pressure()
+        logging.info("barom temp : %s", temperature)
+        logging.info("barom pres : %s", pressure)
         self.store.store_temperature(temperature)
         self.store.store_pressure(pressure)
 
