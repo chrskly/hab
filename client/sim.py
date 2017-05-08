@@ -138,33 +138,40 @@ class sim(object):
 
     # GSM fns
 
-    def gsm_is_connected(self):
-        # Check if we're connected to the GSM network
-        # Request  : AT+CREG?
-        # Response : +CREG: 0,1
-        status = self.at_command("AT+CREG?\n", "+CREG:")
+    def gsm_registered(self):
+        """
+        Check GSM registrations status. Are we connected?
+        Request  : AT+CREG?
+        Response : +CREG: <n>,<stat>[,<lac>,<ci>]
+          n
+            0 - disable
+            1 - enable
+            2 - enable (w/ location)
+          stat
+            0 - not registered
+            1 - registered, home
+            2 - not registered, searching
+            3 - registration denied
+            4 - unknown
+            5 - registrered, roaming
+        """
+        command = "AT+CREG?"
+        logging.debug("Checking GSM connection status")
+        response = self._at_command(command, response_prefix="+CREG")
+        if not response:
+            return False
+        prefix, raw_response = response.split(':')
+        n, stat = raw_response.split(",")
+        return int(stat) == 1 or int(stat) == 5
+
+    def gprs_registered(self):
+        """
+        Check GPRS registration status. Are we connected (to data network)?
+        Request  : AT+CGREG?
+        Response : +CGREG: 0,1
+        """
+        status = self._at_command("AT+CGREG?", response_prefix="+CGREG:")
         n, stat = status.split(",")
         if int(stat) == 1:
             return True
         return False
-
-    def gprs_is_connected(self):
-        # Check if we have GPRS connectivity
-        # Request  : AT+CGREG?
-        # Response : +CGREG: 0,1
-        status = self.at_command("AT+CGREG?\n", "+CGREG:")
-        n, stat = status.split(",")
-        if int(stat) == 1:
-            return True
-        return False
-
-
-
-    def http_get(self):
-        self.ser.write(b"AT+CIPSTART=\"TCP\",\"chrskly.com\",80\n")
-        self._get_until_OK()
-        self.ser.write(b"AT+CIPSEND\n")
-        self.ser.write(b"GET / HTTP/1.0\n")
-        self.ser.write(b"Host:chrskly.com\n")
-        print self._get_until_OK()
-        self.ser.write(b"AT+CIPCLOSE\n")
