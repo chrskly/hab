@@ -1,8 +1,11 @@
 
 import serial
 
-
 class sim(object):
+    """
+    This is a controller for dealing with the SIM808 module. The module is
+    connected to the rPi via their serial ports.
+    """
 
     def __init__(self):
         self.ser = serial.Serial()
