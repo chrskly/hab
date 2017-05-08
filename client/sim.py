@@ -16,46 +16,127 @@ class sim(object):
         self.ser.write(b'AT\n')
         self._get_until_OK()
 
-    def serial_is_connected(self):
+    # Misc fns
+
+    def _serial_is_connected(self):
         return self.ser.is_open
 
-    def _get_until_OK(self):
-        # Read lines until we see the string 'OK'
-        response = ""
-        while True:
-            more = self.ser.read(128)
-            response += more
-            print "more %s" % more
-            if "OK" in more:
-                break
-        return response
+    def _serial_read(self, byte=128):
+        return self.ser.read(byte)
 
-    def at_command(self, request, response_prefix):
-        # Generic request
-        self.ser.write(b"%s" % request)
-        raw_response = self._get_until_OK()
-        if response_prefix != "":
-            for line in raw_response.splitlines():
+    def _serial_write(self, payload):
+        self.ser.write(payload)
+
+    def _get_until_OK(self, ok="OK", max_reads=20):
+        """
+        Read from serial port (sim module) until we see OK (or a line containing
+        value of ok variable).
+        """
+        reads = 1
+        while True:
+            line = self._serial_read()
+            logging.debug("[%s of %s] reading from sim : %s", reads, max_reads, line)
+            if ok in line:
+                return line
+            if "ERROR" in line:
+                return False
+            if reads >= max_reads:
+                return False
+            reads += 1
+
+    def _at_command(self, request, response_prefix="OK", sleep=2):
+        """
+        Send AT command to the module.
+        ARGS
+            response_prefix : read response lines until we get this
+            sleep           : add additional sleep in ms
+        """
+        payload = b"%s" % request
+        logging.debug("Sending command : %s", payload)
+        self._serial_write("%s\n" % payload)
+        if sleep:
+            time.sleep(sleep)
+        response = self._get_until_OK(ok=response_prefix)
+
+        # Just return whole response if we're just waiting on an OK
+        if response_prefix == "OK":
+            return response
+        # If we're looking for a specific prefix, return the matching line
+        else:
+            for line in response.splitlines():
                 if line.startswith(response_prefix):
-                    command, data = line.split(": ")
-                    return data
-            return False
-        return True
+                    return line
+        return False
+
+    # GPS fns
 
     def gps_is_on(self):
-        # Return True/False for GPS state
-        # Request  : AT+CGNSPWR?
-        # Response : +CGNSPWR: 1
-        status = self.at_command("AT+CGNSPWR?\n", "+CGNSPWR:")
-        if '1' in status:
+        """
+        Check GPS service state.
+        Request  : AT+CGNSPWR?
+        Response : +CGNSPWR: 1
+        """
+        logging.debug("Checking GPS service state")
+        command = "AT+CGNSPWR?"
+        response = self._at_command(command, wait_for_ok=False)
+        command, data = response.split(":")
+        if data == 1:
+            logging.debug("GPS is on")
             return True
         else:
+            logging.debug("GPS is off")
             return False
 
     def enable_gps(self):
-        # Turn GPS on
-        status = self.at_command("AT+CGNSPWR=1\n", "")
+        """
+        Turn GPS on
+        Request  : AT+CGNSPWR=1
+        Response : OK
+        """
+        logging.debug("Enabling GPS service")
+        command = "AT+CGNSPWR=1"
+        response = self._at_command(command)
         return True
+
+    def get_gps(self):
+        """
+        Get GPS data
+        Request  : AT+CGNSINF
+        Response : +CGNSINF: 1,1,20160918184431.000,53.287397,-6.215190,45.900,0.28,330.5,1,,1.3,1.6,0.9,,12,6,,,26,,
+        """
+        logging.debug("Fetching GPS data")
+        data = self._at_command("AT+CGNSINF", response_prefix="+CGNSINF:")
+        response_received = False
+        for line in data.splitlines():
+            logging.debug("Reading GPS data : %s", line)
+            if line.startswith("+CGNSINF"):
+                response_received = True
+                cmd, value = line.split(": ")
+        if not response_received:
+            return False
+        gps = value.split(",")
+        response = {}
+        response['run_status'] = gps[0]
+        response['fix_status'] = gps[1]
+        response['date'] = gps[2]
+        response['latitude'] = gps[3]
+        response['longitude'] = gps[4]
+        response['altitude'] = gps[5]
+        response['speed_over_ground'] = gps[6]
+        response['course_over_ground'] = gps[7]
+        response['fix_mode'] = gps[8]
+        response['hdop'] = gps[10]
+        response['pdop'] = gps[11]
+        response['vdop'] = gps[12]
+        response['gps_satellites_in_view'] = gps[14]
+        response['gnss_satellites_used'] = gps[15]
+        response['glonass_satellites_used'] = gps[16]
+        response['cno_max'] = gps[18]
+        response['hpa'] = gps[19]
+        response['vpa'] = gps[20]
+        return response
+
+    # GSM fns
 
     def gsm_is_connected(self):
         # Check if we're connected to the GSM network
@@ -77,32 +158,6 @@ class sim(object):
             return True
         return False
 
-    def get_gps(self):
-        # Get GPS data
-        # Request  : AT+CGNSINF
-        # Response : +CGNSINF: 1,1,20160918184431.000,53.287397,-6.215190,45.900,0.28,330.5,1,,1.3,1.6,0.9,,12,6,,,26,,
-        data = self.at_command("AT+CGNSINF\n", "+CGNSINF:")
-        gps = data.split(",")
-        response = {}
-        response['run_status'] = gps[0]
-        response['fix_status'] = gps[1]
-        response['date'] = gps[2]
-        response['latitude'] = gps[3]
-        response['longitude'] = gps[4]
-        response['altitude'] = gps[5]
-        response['speed_over_ground'] = gps[6]
-        response['course_over_ground'] = gps[7]
-        response['fix_mode'] = gps[8]
-        response['hdop'] = gps[10]
-        response['pdop'] = gps[11]
-        response['vdop'] = gps[12]
-        response['gps_satellites_in_view'] = gps[14]
-        response['gnss_satellites_used'] = gps[15]
-        response['glonass_satellites_used'] = gps[16]
-        response['cno_max'] = gps[18]
-        response['hpa'] = gps[19]
-        response['vpa'] = gps[20]
-        return response
 
 
     def http_get(self):
