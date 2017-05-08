@@ -8,7 +8,7 @@ from barometer import barometer
 from store import store
 from sim import sim
 
-logging.basicConfig(level=logging.DEBUG, format='%(created)f:%(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(created)f:%(funcName)s:%(message)s')
 
 class hab:
 
