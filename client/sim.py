@@ -30,9 +30,9 @@ class sim(object):
         return self.ser.read(byte)
 
     def _serial_write(self, payload):
-        self.ser.write(payload)
+        self.ser.write(payload.encode())
 
-    def _get_until_OK(self, ok="OK", max_reads=20):
+    def _get_until_OK(self, ok="OK", max_reads=10):
         """
         Read from serial port (sim module) until we see OK msg.
           ok='OK'  : wait for a line with OK on it
@@ -53,16 +53,21 @@ class sim(object):
                 return False
             reads += 1
 
-    def _at_command(self, request, response_prefix="OK", sleep=2):
+    def _at_command(self, request, response_prefix="OK", sleep=1, newline=True):
         """
         Send AT command to the module.
         ARGS
+            request         : command to execute
             response_prefix : read response lines until we get this
             sleep           : add additional sleep in ms
+            newline         : append newline to request
         """
         payload = b"%s" % request
         logging.debug("Sending command : %s", payload)
-        self._serial_write("%s\n" % payload)
+        if newline:
+            self._serial_write("%s\n" % payload)
+        else:
+            self._serial_write(payload)
         if sleep:
             time.sleep(sleep)
         response = self._get_until_OK(ok=response_prefix)
@@ -216,7 +221,7 @@ class sim(object):
             logging.debug("WARNING abort failed")
         return
 
-    def data_upload(self):
+    def data_upload(self, message):
         """
         Upload a message to the HAB server.
         """
@@ -259,11 +264,18 @@ class sim(object):
             self.abort_upload()
             return False
         # Send message
-        cmd = "AT+CIPSEND\nHello\n%s" % chr(26)
+        cmd = "AT+CIPSEND"
+        if not self._at_command(cmd, response_prefix='>'):
+            logging.debug("Upload failed because there was a problem sending data to the TCP connection")
+            self.abort_upload()
+            return False
+
+        cmd = "%s\r\n\x1A" % message
         if not self._at_command(cmd):
             logging.debug("Upload failed because there was a problem sending data to the TCP connection")
             self.abort_upload()
             return False
+
         # close connection
         cmd = 'AT+CIPCLOSE'
         if not self._at_command(cmd):
