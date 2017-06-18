@@ -44,7 +44,7 @@ class sim(object):
             line = self._serial_read()
             if not ok:
                 return line
-            logging.debug("[%s of %s] reading from sim : %s", reads, max_reads, line)
+            logging.debug("(%s/%s) reading from sim : %s", reads, max_reads, line)
             if ok in line:
                 return line
             if "ERROR" in line:
@@ -150,6 +150,16 @@ class sim(object):
         response['hpa'] = gps[19]
         response['vpa'] = gps[20]
         return response
+
+    def gps_has_lock(self):
+        """
+        True/False, GPS has a lock on satellites and knows its location.
+        """
+        response = self.get_gps()
+        logging.info("fix_status : %s" % response['fix_status'])
+        if response['fix_status'] == '0':
+            return False
+        return True
 
     # GSM fns
 
