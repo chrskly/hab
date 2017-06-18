@@ -43,9 +43,6 @@ class hab:
     def get_location(self):
         self.current_gps = self.sim.get_gps()
 
-    def upload(self):
-        self.sim.http_get()
-
     def upload_telemetry(self):
         logging.info("uploading telemetry")
         if not self.current_gps:
