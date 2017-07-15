@@ -274,6 +274,9 @@ class sim(object):
             logging.info("Upload failed because GPRS not attached")
             self.abort_upload()
             return False
+        # Check APN setup
+        cmd = 'AT+CSTT?'
+        logging.debug(self._at_command(cmd))
         # Set APN
         cmd = 'AT+CSTT="CMNET"'
         if not self._at_command(cmd):
@@ -309,9 +312,10 @@ class sim(object):
             logging.debug("Upload failed because there was a problem sending data to the TCP connection")
             self.abort_upload()
             return False
-
         # close connection
         cmd = 'AT+CIPCLOSE'
         if not self._at_command(cmd):
             logging.debug("WARNING failed to shutdown TCP connection")
+        self.abort_upload()
+        return True
 
