@@ -72,6 +72,9 @@ class sim(object):
             time.sleep(sleep)
         response = self._get_until_OK(ok=response_prefix)
 
+        if not response:
+            return False
+
         # Just return whole response if we're just waiting on an OK
         if response_prefix == "OK" or not response_prefix:
             return response
@@ -121,6 +124,8 @@ class sim(object):
         """
         logging.debug("Fetching GPS data")
         data = self._at_command("AT+CGNSINF", response_prefix="+CGNSINF:")
+        if not data:
+            return False
         response_received = False
         for line in data.splitlines():
             logging.debug("Reading GPS data : %s", line)
@@ -149,6 +154,7 @@ class sim(object):
         response['cno_max'] = gps[18]
         response['hpa'] = gps[19]
         response['vpa'] = gps[20]
+        logging.debug("GPS DATA : %s" % response)
         return response
 
     def gps_has_lock(self):
@@ -189,6 +195,15 @@ class sim(object):
         n, stat = raw_response.split(",")
         return int(stat) == 1 or int(stat) == 5
 
+    def enable_gsm(self):
+        """
+        Connect to GSM.
+        """
+        command = "AT+CREG=1"
+        logging.debug("Connecting to GSM")
+        response = self._at_command(command, response_prefix="+CREG")
+        return True
+
     def gprs_registered(self):
         """
         Check GPRS registration status. Are we connected (to data network)?
@@ -200,6 +215,15 @@ class sim(object):
         if int(stat) == 1:
             return True
         return False
+
+    def enable_gprs(self):
+        """
+        Connect to GPRS.
+        """
+        command = "AT+CGATT=1"
+        logging.debug("Connecting to GPRS")
+        response = self._at_command(command, response_prefix="+CGATT")
+        return True
 
     def gprs_is_attached(self):
         """
