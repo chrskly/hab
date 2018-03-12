@@ -33,9 +33,16 @@ class hab:
         """
         Get the heading from the magnetometer
         """
-        self.curent_heading = self.magnetometer.degrees(self.magnetometer.heading())
+        self.current_heading = self.magnetometer.degrees(self.magnetometer.heading())
         logging.info("heading : %s", self.current_heading)
+
+    def store_magnetometer_reading(self):
+        """
+        Store heading in local db.
+        """
         self.store.store_heading(self.current_heading[0], self.current_heading[1])
+
+    # BAROM
 
     def get_barometer_reading(self):
         """
@@ -47,9 +54,26 @@ class hab:
         # Keep latest readings in dict
         self.current_barom['temperature'] = temperature
         self.current_barom['pressure'] = pressure
-        # Also store readings in local db
-        self.store.store_temperature(temperature)
-        self.store.store_pressure(pressure)
+
+    def store_barometer_reading(self):
+        """
+        Store temperature and pressure readings in the local db.
+        """
+        self.store.store_temperature(self.current_barom['temperature'])
+        self.store.store_pressure(self.current_barom['pressure'])
+
+    def upload_barometer_reading(self):
+        """
+        Send msg to server : BAROM,<temp>,<pressure>
+        """
+        logging.info("uploading barometer data")
+        if not self.current_barom:
+            logging.info("WARNING : no barometer data. Skipping barometer data upload.")
+            return True
+        # BAROM,<temp>,<pressure>
+        self.sim.data_upload("BAROM,%s,%s" % (self.current_barom['temperature'], self.current_barom['pressure']))
+
+    # GPS
 
     def get_telemetry(self):
         self.current_gps = self.sim.get_gps()
@@ -70,16 +94,6 @@ class hab:
              self.current_gps['speed_over_ground'],
              self.current_gps['course_over_ground']))
 
-    def upload_barometer_reading(self):
-        """
-        Send msg to server : BAROM,<temp>,<pressure>
-        """
-        logging.info("uploading barometer data")
-        if not self.current_barom:
-            logging.info("WARNING : no barometer data. Skipping barometer data upload.")
-            return True
-        # BAROM,<temp>,<pressure>
-        self.sim.data_upload("BAROM,%s,%s" % (self.current_barom['temperature'], self.current_barom['pressure']))
 
     def main_loop(self):
         """
@@ -89,12 +103,17 @@ class hab:
         self.sim.enable_gsm()
         self.sim.enable_gprs()
         logging.info("LOCK STATUS : %s" % self.sim.gps_has_lock())
-        # poll GPS
-        self.get_telemetry()
-        print self.upload_telemetry()
-        # poll barometer
-        self.get_barometer_reading()
-        print self.upload_barometer_reading()
+        while True:
+            # poll magnetometer
+            self.get_magnetomoeter_reading()
+            self.store_magnetometer_reading()
+            # poll GPS
+            self.get_telemetry()
+            print self.upload_telemetry()
+            # poll barometer
+            self.get_barometer_reading()
+            self.store_barometer_reading()
+            #print self.upload_barometer_reading()
 
 
 if __name__ == "__main__":
