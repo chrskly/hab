@@ -18,7 +18,7 @@ class magnetometer:
       8.10: [7, 4.35],
     }
 
-    def __init__(self, port=1, address=0x1E, gauss=1.3, declination=(-3,13)):
+    def __init__(self, port=1, address=0x1E, gauss=1.3, declination=(-2,58)):
         self.bus = smbus.SMBus(port)
         self.address = address
 
